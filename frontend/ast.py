@@ -349,11 +349,11 @@ class While(Statement):
     
     
 class For(Statement):
-    children = ['varDef', 'topExpr', 'body']
-    types = dict(varDef='VarDef', topExpr='Expression', body='Statement')
+    children = ['iType', 'name', 'initExpr', 'topExpr', 'body']
+    types = dict(iType='Type', name='str', initExpr='Expression', topExpr='Expression', body='Statement')
 
     def __str__(self):
-        s = 'for ({0.varDef} to {0.topExpr}) {0.body}'.format(self)
+        s = 'for ({0.iType} {0.name} = {0.initExpr} to {0.topExpr}) {0.body}'.format(self)
         return s
     
     

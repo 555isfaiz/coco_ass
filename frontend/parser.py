@@ -176,8 +176,7 @@ def p_while(p):
     
 def p_for(p):
     '''statement : FOR LPAREN type ID ASSIGN expr TO expr RPAREN statement'''
-    varDef = ast.VarDef(p[3], p[4], p[6]).at(loc(p, 3, 6))
-    p[0] = ast.For(varDef, p[8], block(p[10])).at(loc(p))
+    p[0] = ast.For(p[3], p[4], p[6], p[8], block(p[10])).at(loc(p))
 
     
 def p_break(p):
