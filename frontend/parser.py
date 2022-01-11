@@ -164,6 +164,32 @@ def p_if(p):
     p[0] = ast.If(p[3], block(p[5]), nobody).at(loc(p, 1, 4))
 
 
+def p_do(p):
+    '''statement : DO statement WHILE LPAREN expr RPAREN SEMICOL'''
+    p[0] = ast.Do(block(p[2]), p[5]).at(loc(p, 2))
+
+    
+def p_while(p):
+    '''statement : WHILE LPAREN expr RPAREN statement'''
+    p[0] = ast.While(p[3], block(p[5])).at(loc(p, 3))
+
+    
+def p_for(p):
+    '''statement : FOR LPAREN type ID ASSIGN expr TO expr RPAREN statement'''
+    varDef = ast.VarDef(p[3], p[4], p[6]).at(loc(p, 3, 6))
+    p[0] = ast.For(varDef, p[8], block(p[10])).at(loc(p))
+
+    
+def p_break(p):
+    '''statement : BREAK SEMICOL'''
+    p[0] = ast.Break().at(loc(p))
+
+    
+def p_continue(p):
+    '''statement : CONTINUE SEMICOL'''
+    p[0] = ast.Continue().at(loc(p))
+
+
 def block(stat):
     if isinstance(stat, ast.Block):
         return stat
@@ -258,6 +284,11 @@ def p_intconst(p):
 def p_hexconst(p):
     '''expr : HEXCONST'''
     p[0] = ast.HexConst(int(p[1][2:], 16)).at(loc(p))
+
+    
+def p_floatconst(p):
+    '''expr : FLOATCONST'''
+    p[0] = ast.FloatConst(float(p[1])).at(loc(p))
 
 
 def p_stringconst(p):
