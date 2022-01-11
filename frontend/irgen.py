@@ -1,4 +1,5 @@
 from llvmlite import ir, binding
+from llvmlite.ir.types import DoubleType, FloatType
 from util import ASTTransformer
 import ast
 
@@ -230,7 +231,13 @@ class IRGen(ASTTransformer):
             return self.visit(ast.BinaryOp(node.value, eq, false).at(node))
 
         if node.op == '-':
-            return self.builder.neg(self.visit(node.value))
+            val = self.visit(node.value)
+            if isinstance(val.type, DoubleType):
+                zero = ast.FloatConst(0.0)
+                zero.ty = ast.Type('float')
+                return self.visit(ast.BinaryOp(zero, node.op, node.value).at(node))
+            else:
+                return self.builder.neg(val)
 
         assert node.op == '~'
         return self.builder.not_(self.visit(node.value))
@@ -251,9 +258,22 @@ class IRGen(ASTTransformer):
         self.visit_children(node)
 
         if op.is_equality() or op.is_relational():
-            return b.icmp_signed(op.op, node.lhs, node.rhs)
+            if isinstance(node.lhs.type, DoubleType) or isinstance(node.rhs.type, DoubleType):
+                if op == '!=':
+                    return b.fcmp_unordered(op.op, node.lhs, node.rhs)
+                else:
+                    return b.fcmp_ordered(op.op, node.lhs, node.rhs)
+            else:
+                return b.icmp_signed(op.op, node.lhs, node.rhs)
+        
+        callbacks = {}
 
-        callbacks = {
+        if isinstance(node.lhs.type, DoubleType) or isinstance(node.rhs.type, DoubleType):
+            callbacks = {
+            '+': b.fadd, '-': b.fsub, '*': b.fmul, '/': b.fdiv, '%': b.frem
+        }
+        else:
+            callbacks = {
             '+': b.add, '-': b.sub, '*': b.mul, '/': b.sdiv, '%': b.srem
         }
 
@@ -298,6 +318,9 @@ class IRGen(ASTTransformer):
     def visitIntConst(self, node):
         return ir.Constant(self.getty(node.ty), node.value)
 
+    def visitFloatConst(self, node):
+        return ir.Constant(self.getty(node.ty), node.value)
+
     def visitStringConst(self, node):
         # name is unique, based on simple counter
         name = '.str.%d' % self.nstrings
@@ -334,6 +357,9 @@ class IRGen(ASTTransformer):
 
         if str(ty) == 'int':
             return ir.IntType(ast.Type.int_bits)
+
+        if str(ty) == 'float':
+            return ir.DoubleType()
 
         assert str(ty) == 'void'
         return ir.VoidType()
