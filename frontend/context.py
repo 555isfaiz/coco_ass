@@ -86,3 +86,18 @@ class ContextAnalysis(ASTVisitor):
     def visitFunCall(self, node):
         self.find_in_scope(node)
         self.visit_children(node)
+
+    def visitDo(self, node):
+        self.scopes.append({})
+        self.visit_children(node)
+        self.scopes.pop()
+
+    def visitWhile(self, node):
+        self.scopes.append({})
+        self.visit_children(node)
+        self.scopes.pop()
+        
+    def visitFor(self, node):
+        self.scopes.append({})
+        self.visit_children(node)
+        self.scopes.pop()

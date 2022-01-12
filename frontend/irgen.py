@@ -157,6 +157,62 @@ class IRGen(ASTTransformer):
         # go to the end block to emit further instructions
         self.builder.position_at_start(bend)
 
+    def visitDo(self, node):
+        prefix = self.builder.block.name
+        # create blocks
+        bdobody = self.add_block(prefix + '.dobody')
+        bcond = self.add_block(prefix + '.cond')
+        bend = self.add_block(prefix + '.enddo')
+        self.loops.append((bcond, bend))
+        self.builder.branch(bdobody)
+
+        # fill do body
+        self.builder.position_at_start(bdobody)
+        self.visit_before(node.statement, bend)
+        self.builder.branch(bcond)
+        
+        # while condition
+        self.builder.position_at_start(bcond)
+        cond = self.visit_before(node.expression, bend)
+        self.builder.cbranch(cond, bdobody, bend)
+
+        self.builder.position_at_start(bend)
+
+    def visitWhile(self, node):
+        prefix = self.builder.block.name
+        # create blocks
+        bwhile = self.add_block(prefix + '.while')
+        bwhilebody = self.add_block(prefix + '.whilebody')
+        bend = self.add_block(prefix + '.endwhile')
+        self.loops.append((bwhile, bend))
+        self.builder.branch(bwhile)
+
+        # while condition
+        self.builder.position_at_start(bwhile)
+        cond = self.visit_before(node.expression, bwhilebody)
+        self.builder.cbranch(cond, bwhilebody, bend)
+        
+        # fill while body
+        self.builder.position_at_start(bwhilebody)
+        self.visit_before(node.statement, bend)
+        self.builder.branch(bwhile)
+
+        self.builder.position_at_start(bend)
+
+    def visitBreak(self, node):
+        prefix = self.builder.block.name
+        bloopend = self.loops[-1][1]
+        bbreak = self.add_block(prefix + '.aftbreak')
+        self.builder.branch(bloopend)
+        self.builder.position_at_start(bbreak)
+
+    def visitContinue(self, node):
+        prefix = self.builder.block.name
+        bloopcond = self.loops[-1][0]
+        bcontinue = self.add_block(prefix + '.aftcontinue')
+        self.builder.branch(bloopcond)
+        self.builder.position_at_start(bcontinue)
+
     def visitReturn(self, node):
         self.visit_children(node)
 
