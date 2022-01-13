@@ -177,6 +177,7 @@ class IRGen(ASTTransformer):
         cond = self.visit_before(node.expression, bend)
         self.builder.cbranch(cond, bdobody, bend)
 
+        self.loops.pop()
         self.builder.position_at_start(bend)
 
     def visitWhile(self, node):
@@ -209,6 +210,7 @@ class IRGen(ASTTransformer):
             self.visit(inc)
             self.builder.branch(bwhile)
 
+        self.loops.pop()
         self.builder.position_at_start(bend)
 
     def visitBreak(self, node):
