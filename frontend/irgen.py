@@ -108,6 +108,17 @@ class IRGen(ASTTransformer):
         retty = self.getty(node.return_type)
         paramtypes = [self.getty(p._type) for p in node.params]
         return ir.FunctionType(retty, paramtypes, node.varargs)
+    
+    def visitBlock(self, node):
+        start_delete = False
+        for i in range(0, len(node.statements)):
+            if isinstance(node.statements[i], (ast.Break, ast.Continue, ast.Return)):
+                start_delete = True
+                continue
+            
+            if start_delete:
+                node.statements[i] = ast.DeleteNode()
+        self.visit_children(node)
 
     def visitAssignment(self, node):
         if isinstance(node.ref, ast.Index):
@@ -170,7 +181,8 @@ class IRGen(ASTTransformer):
         # fill do body
         self.builder.position_at_start(bdobody)
         self.visit_before(node.statement, bcond)
-        self.builder.branch(bcond)
+        if not self.builder.block.is_terminated:
+            self.builder.branch(bcond)
         
         # while condition
         self.builder.position_at_start(bcond)
@@ -203,7 +215,8 @@ class IRGen(ASTTransformer):
         # fill while body
         self.builder.position_at_start(bwhilebody)
         self.visit_before(node.statement, bend if not node.isfor else binc)
-        self.builder.branch(bwhile if not node.isfor else binc)
+        if not self.builder.block.is_terminated:
+            self.builder.branch(bwhile if not node.isfor else binc)
         
         if binc is not None:
             self.builder.position_at_start(binc)
@@ -214,18 +227,12 @@ class IRGen(ASTTransformer):
         self.builder.position_at_start(bend)
 
     def visitBreak(self, node):
-        # prefix = self.builder.block.name
         bloopend = self.loops[-1][1]
-        # bbreak = self.add_block(prefix + '.aftbreak')
         self.builder.branch(bloopend)
-        # self.builder.position_at_start(bbreak)
 
     def visitContinue(self, node):
-        # prefix = self.builder.block.name
         bloopcond = self.loops[-1][0]
-        # bcontinue = self.add_block(prefix + '.aftcontinue')
         self.builder.branch(bloopcond)
-        # self.builder.position_at_start(bcontinue)
 
     def visitReturn(self, node):
         self.visit_children(node)
