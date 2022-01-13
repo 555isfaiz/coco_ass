@@ -146,7 +146,8 @@ class IRGen(ASTTransformer):
         # insert instructions for the 'if' block before the 'else' block
         self.builder.position_at_start(bif)
         self.visit_before(node.yesbody, belse)
-        self.builder.branch(bend)
+        if not self.builder.block.is_terminated:
+            self.builder.branch(bend)
 
         # insert instructions for the 'else' block before the end block
         if node.nobody:
@@ -168,7 +169,7 @@ class IRGen(ASTTransformer):
 
         # fill do body
         self.builder.position_at_start(bdobody)
-        self.visit_before(node.statement, bend)
+        self.visit_before(node.statement, bcond)
         self.builder.branch(bcond)
         
         # while condition
@@ -183,8 +184,14 @@ class IRGen(ASTTransformer):
         # create blocks
         bwhile = self.add_block(prefix + '.while')
         bwhilebody = self.add_block(prefix + '.whilebody')
+        binc = None
+        inc = None
+        if node.isfor:
+            binc = self.add_block(prefix + '.whileinc')
+            inc = node.statement.statements.pop()
+
         bend = self.add_block(prefix + '.endwhile')
-        self.loops.append((bwhile, bend))
+        self.loops.append((bwhile if not node.isfor else binc, bend))
         self.builder.branch(bwhile)
 
         # while condition
@@ -194,24 +201,29 @@ class IRGen(ASTTransformer):
         
         # fill while body
         self.builder.position_at_start(bwhilebody)
-        self.visit_before(node.statement, bend)
-        self.builder.branch(bwhile)
+        self.visit_before(node.statement, bend if not node.isfor else binc)
+        self.builder.branch(bwhile if not node.isfor else binc)
+        
+        if binc is not None:
+            self.builder.position_at_start(binc)
+            self.visit(inc)
+            self.builder.branch(bwhile)
 
         self.builder.position_at_start(bend)
 
     def visitBreak(self, node):
-        prefix = self.builder.block.name
+        # prefix = self.builder.block.name
         bloopend = self.loops[-1][1]
-        bbreak = self.add_block(prefix + '.aftbreak')
+        # bbreak = self.add_block(prefix + '.aftbreak')
         self.builder.branch(bloopend)
-        self.builder.position_at_start(bbreak)
+        # self.builder.position_at_start(bbreak)
 
     def visitContinue(self, node):
-        prefix = self.builder.block.name
+        # prefix = self.builder.block.name
         bloopcond = self.loops[-1][0]
-        bcontinue = self.add_block(prefix + '.aftcontinue')
+        # bcontinue = self.add_block(prefix + '.aftcontinue')
         self.builder.branch(bloopcond)
-        self.builder.position_at_start(bcontinue)
+        # self.builder.position_at_start(bcontinue)
 
     def visitReturn(self, node):
         self.visit_children(node)

@@ -342,6 +342,7 @@ class Do(Statement):
 class While(Statement):
     children = ['expression', 'statement']
     types = dict(expression='Expression', statement='Statement')
+    isfor = False
 
     def __str__(self):
         s = 'while ({0.expression}) {0.statement}'.format(self)
