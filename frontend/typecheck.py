@@ -129,6 +129,30 @@ class TypeChecker(ASTVisitor):
         # condition must be bool
         self.visit_children(node)
         self.check_type(node.cond, self.tbool)
+        
+    def visitDo(self, node):
+        set_to_false = not self.in_loop
+        self.in_loop = True
+        self.visit_children(node)
+        if set_to_false:
+            self.in_loop = False
+        self.check_type(node.expression, self.tbool)
+
+    def visitWhile(self, node):
+        set_to_false = not self.in_loop
+        self.in_loop = True
+        self.visit_children(node)
+        if set_to_false:
+            self.in_loop = False
+        self.check_type(node.expression, self.tbool)
+        
+    def visitBreak(self, node):
+        if not self.in_loop:
+            raise NodeError(node, 'Error: break not defined in loop')
+
+    def visitContinue(self, node):
+        if not self.in_loop:
+            raise NodeError(node, 'Error: continue not defined in loop')
 
     def visitReturn(self, node):
         # returned type must match function type

@@ -1,6 +1,6 @@
-from util import ASTTransformer
+from util import ASTTransformer, NodeError
 from ast import Type, Operator, VarDef, ArrayDef, Assignment, Modification, \
-        If, Block, VarUse, BinaryOp, IntConst, Return
+        If, Block, VarUse, BinaryOp, IntConst, Return, For, While, UnaryOp, BoolConst
 
 
 class Desugarer(ASTTransformer):
@@ -30,3 +30,21 @@ class Desugarer(ASTTransformer):
         # to:   lhs = lhs op rhs
         self.visit_children(m)
         return Assignment(m.ref, BinaryOp(m.ref, m.op, m.value)).at(m)
+    
+    def visitFor(self, f):
+        self.visit_children(f)
+        if f.iType != Type.get('int'):
+            raise NodeError(f, 'Type mismatch: expected int, got %s', f.iType)
+
+        # int i = 0;
+        # while (i < ?) {
+        #     for body
+        #     i++
+        # }
+        varDefi = VarDef(f.iType, f.name, f.initExpr)
+        cond = BinaryOp(VarUse(f.name), Operator('<'), f.topExpr)
+        inc = Assignment(VarUse(f.name), BinaryOp(VarUse(f.name), Operator('+'), IntConst(1)))
+        f.body.statements.append(inc)
+        whileLoop = While(cond, f.body)
+        whileLoop.isfor = True
+        return Block([varDefi, whileLoop]).at(f)
