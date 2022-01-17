@@ -227,10 +227,14 @@ class IRGen(ASTTransformer):
         self.builder.position_at_start(bend)
 
     def visitBreak(self, node):
+        if self.builder.block.is_terminated:
+            return
         bloopend = self.loops[-1][1]
         self.builder.branch(bloopend)
 
     def visitContinue(self, node):
+        if self.builder.block.is_terminated:
+            return
         bloopcond = self.loops[-1][0]
         self.builder.branch(bloopcond)
 
