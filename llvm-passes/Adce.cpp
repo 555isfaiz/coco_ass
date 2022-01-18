@@ -4,22 +4,23 @@
 
 namespace
 {
-    class Adce : public ModulePass
+    class Adce : public FunctionPass
     {
     public:
         static char ID;
-        Adce() : ModulePass(ID) {}
-        virtual bool runOnModule(Module &M) override;
-    private:
-        bool eliminateDeadCode(Function &f);
+        Adce() : FunctionPass(ID) {}
+        virtual bool runOnFunction(Function &F) override;
     };
 }
 
-bool Adce::eliminateDeadCode(Function &f)
+bool Adce::runOnFunction(Function &F)
 {
+    if (!shouldInstrument(&F))
+        return;
+
     SmallVector<Instruction*, 32> unused;
     bool changed = false;
-    for (auto &II : instructions(f))
+    for (auto &II : instructions(F))
     {
         Instruction *I = &II;
         LOG_LINE("Visiting instruction " << I);
@@ -58,20 +59,6 @@ bool Adce::eliminateDeadCode(Function &f)
         changed = true;
     }
     
-    return changed;
-}
-
-bool Adce::runOnModule(Module &M)
-{
-    bool changed = false;
-    for (Function &F : M) 
-    {
-        if (!shouldInstrument(&F))
-            continue;
-
-        LOG_LINE("Visiting function " << F.getName());
-        changed |= eliminateDeadCode(F);
-    }
     return changed;
 }
 
