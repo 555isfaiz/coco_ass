@@ -16,7 +16,7 @@ namespace
 bool Adce::runOnFunction(Function &F)
 {
     if (!shouldInstrument(&F))
-        return;
+        return false;
 
     SmallVector<Instruction*, 32> unused;
     bool changed = false;
