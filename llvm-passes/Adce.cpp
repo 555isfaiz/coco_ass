@@ -18,45 +18,83 @@ bool Adce::runOnFunction(Function &F)
     if (!shouldInstrument(&F))
         return false;
 
-    SmallVector<Instruction*, 32> unused;
+    SmallVector<Instruction*, 32> worklist;
+    SmallVector<Instruction*, 32> used;
     bool changed = false;
-    for (auto &II : instructions(F))
+    auto iter = instructions(F).end();
+    bool last_inst = true;
+    do
     {
-        Instruction *I = &II;
-        LOG_LINE("Visiting instruction " << I);
-
-        if (LoadInst *L = dyn_cast<LoadInst>(I))
+        iter--;
+        Instruction *I = &*iter;
+        LOG_LINE("instruction: " << *I);
+        if (last_inst)
         {
-            if (L->isVolatile())
-                continue;
+            last_inst = false;
+            worklist.push_back(I);
+            used.push_back(I);
+            while (!worklist.empty()) 
+            {
+                Instruction *I = worklist.pop_back_val();
+                for (Use &U : I->operands()) 
+                {
+                    if (!isa<Instruction>(U.get()))
+                        continue;
+                        
+                    LOG_LINE("instruction: " << I << " uses: " << *U);
+                    worklist.push_back(cast<Instruction>(U));
+                    used.push_back(cast<Instruction>(U));
+                }
+            }
         }
+        // else
+        // {
 
-        if (StoreInst *S = dyn_cast<StoreInst>(I))
-        {
-            if (S->isVolatile())
-                continue;
-        }
+        // }
 
-        if (!I->users().empty())
-        {
-            LOG_LINE("user not empty " << I);
-            continue;
-        }
-        
-        if (!I->isSafeToRemove())
-        {
-            LOG_LINE("not safe to remove" << I);
-            continue;
-        }
+    } while (iter != instructions(F).begin());
 
-        LOG_LINE("removing " << I);
-        unused.push_back(I);
-    }
-
-    for (auto &I : unused)
+    while (iter != instructions(F).end())
     {
-        I->eraseFromParent();
-        changed = true;
+        LOG_LINE("walking: " << *iter);
+        Instruction *I = &*iter;
+        LOG_LINE("walking: " << I);
+        bool Iused = false;
+        for (auto i : used)
+        {
+            if (i == I)
+                Iused = true;
+        }
+
+        if (!Iused)
+        {
+            bool can_remove = true;
+            if (LoadInst *L = dyn_cast<LoadInst>(I))
+            {
+                if (L->isVolatile())
+                    can_remove = false;
+            }
+
+            if (StoreInst *S = dyn_cast<StoreInst>(I))
+            {
+                if (S->isVolatile())
+                    can_remove = false;
+            }
+            
+            if (!I->isSafeToRemove())
+                can_remove = false;
+
+            if (can_remove)
+            {
+                changed = true;
+                LOG_LINE("removing: " << I);
+                LOG_LINE("removing: " << *I);
+                I->eraseFromParent();
+            }
+        }
+        LOG_LINE("iter then: " << *iter);
+        iter++;
+        LOG_LINE("iter now: " << *iter);
     }
     
     return changed;
