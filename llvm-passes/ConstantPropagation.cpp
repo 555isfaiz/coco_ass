@@ -97,6 +97,33 @@ void ConstantPropagation::convertInt(IRBuilder<> builder, DenseMap<StringRef, Co
                             val = val.lshr(map[i->getName()]->getValue());
                         break;
                     }
+
+                    case Instruction::And:
+                    {
+                        if (auto c = dyn_cast<ConstantInt>(U))
+                            val &= c->getValue();
+                        else if (auto i = dyn_cast<Instruction>(U))
+                            val &= map[i->getName()]->getValue();
+                        break;
+                    }
+
+                    case Instruction::Xor:
+                    {
+                        if (auto c = dyn_cast<ConstantInt>(U))
+                            val ^= c->getValue();
+                        else if (auto i = dyn_cast<Instruction>(U))
+                            val ^= map[i->getName()]->getValue();
+                        break;
+                    }
+
+                    case Instruction::Or:
+                    {
+                        if (auto c = dyn_cast<ConstantInt>(U))
+                            val |= c->getValue();
+                        else if (auto i = dyn_cast<Instruction>(U))
+                            val |= map[i->getName()]->getValue();
+                        break;
+                    }
                     
                     default:
                         break;
