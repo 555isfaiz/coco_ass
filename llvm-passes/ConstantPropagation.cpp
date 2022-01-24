@@ -11,7 +11,7 @@ namespace
         virtual bool runOnFunction(Function &F) override;
     private:
         void convertInt(IRBuilder<> builder, DenseMap<StringRef, ConstantInt*> &map, Instruction *I);
-        // void convertFloat(IRBuilder<> builder, DenseMap<StringRef, ConstantFP*> map, Instruction *I);
+        // void convertFloat(IRBuilder<> builder, DenseMap<StringRef, ConstantFP*> &map, Instruction *I);
         bool replace(Instruction *I, StringRef name, ConstantInt* cons); 
     };
 }
@@ -149,7 +149,7 @@ void ConstantPropagation::convertInt(IRBuilder<> builder, DenseMap<StringRef, Co
     }
 }
 
-// void ConstantPropagation::convertFloat(IRBuilder<> builder, DenseMap<StringRef, ConstantFP*> map, Instruction *I)
+// void ConstantPropagation::convertFloat(IRBuilder<> builder, DenseMap<StringRef, ConstantFP*> &map, Instruction *I)
 // {
 //     switch (I->getOpcode())
 //     {
@@ -159,11 +159,11 @@ void ConstantPropagation::convertInt(IRBuilder<> builder, DenseMap<StringRef, Co
 //             for (auto &U : I->operands())
 //             {
 //                 if (auto i = cast<Instruction>(U))
-//                     val += map[i->getName()]->;
+//                     val += map[i->getName()]->getValueAPF();
 //                 else if (auto c = cast<ConstantFP>(U))
 //                     val += c->getValueAPF();
 //             }
-//             map[I->getName()] = builder.getFloat(val);
+//             map[I->getName()] = builder.getFloatTy(val);
 //             break;
 //         }
         
@@ -218,7 +218,7 @@ bool ConstantPropagation::runOnFunction(Function &F)
             {
                 if (U == NULL)
                     continue;
-                // not constant and can't be found in map
+                // not a constant and can't be found in map
                 if (!isa<Constant>(U)
                     && int_constants.find(U->getName()) == int_constants.end() 
                     && float_constants.find(U->getName()) == float_constants.end())
@@ -230,6 +230,8 @@ bool ConstantPropagation::runOnFunction(Function &F)
                 LOG_LINE("convert: " << II.getName());
                 if (II.getType()->isIntegerTy())
                     convertInt(B, int_constants, &II);
+                // else if (II.getType()->isFloatTy())
+                //     convertFloat(B, float_constants, &II);
 
                 bool replaced;
                 for (auto user : II.users())
@@ -237,8 +239,6 @@ bool ConstantPropagation::runOnFunction(Function &F)
 
                 if (replaced)
                     changed = true;
-                // if (II.getType()->isFloatTy())
-                //     convertFloat(B, float_constants, &II);
             }
         }
     }

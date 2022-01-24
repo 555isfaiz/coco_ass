@@ -27,51 +27,45 @@ bool Licm::runOnLoop(Loop *L, LPPassManager &LPM)
     SmallVector<Instruction*, 32> unreache_def;
     SmallVector<Instruction*, 32> to_remove;
     SmallVector<Instruction*, 32> worklist;
-    
-    for (BasicBlock *BB : L->blocks()) 
+
+    for (BasicBlock *BB : L->blocks())
     {
-        for (Instruction &II : *BB) 
+        for (Instruction &II : *BB)
         {
-            // worklist.push_back(&II);
-            // while (!worklist.empty()) 
-            // {
-            //     Instruction *I = worklist.pop_back_val();
-                Instruction *I = &II;
-                if (I->isTerminator())
+            Instruction *I = &II;
+            if (I->isTerminator())
+                continue;
+
+            if (LoadInst *L = dyn_cast<LoadInst>(I))
+            {
+                if (L->isVolatile())
+                    continue;
+            }
+
+            bool use_def_inloop = false;
+            for (Use &U : I->operands())
+            {
+                if (!isa<Instruction>(U.get()))
                     continue;
 
                 if (LoadInst *L = dyn_cast<LoadInst>(I))
                 {
                     if (L->isVolatile())
-                        continue;
-                }
-
-                bool use_def_inloop = false;
-                for (Use &U : I->operands()) 
-                {
-                    if (!isa<Instruction>(U.get()))
-                        continue;
-                        
-                    if (LoadInst *L = dyn_cast<LoadInst>(I))
-                    {
-                        if (L->isVolatile())
-                            use_def_inloop = true;
-                    }
-
-                    if (L->contains(cast<Instruction>(U)->getParent()))
                         use_def_inloop = true;
-                    LOG_LINE("instruction: " << I << " uses: " << *U);
-                    // worklist.push_back(cast<Instruction>(U));
                 }
 
-                if (!use_def_inloop)
-                {
-                    LOG_LINE("unreach def: " << *I);
-                    unreache_def.push_back(I);
-                    to_remove.push_back(I);
-                    changed = true;
-                }
-            // }
+                if (L->contains(cast<Instruction>(U)->getParent()))
+                    use_def_inloop = true;
+                LOG_LINE("instruction: " << I << " uses: " << *U);
+            }
+
+            if (!use_def_inloop)
+            {
+                LOG_LINE("unreach def: " << *I);
+                unreache_def.push_back(I);
+                to_remove.push_back(I);
+                changed = true;
+            }
         }
     }
 
