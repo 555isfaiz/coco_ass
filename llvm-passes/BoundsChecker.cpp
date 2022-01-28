@@ -21,17 +21,22 @@ namespace {
             this->newF = new_f;
         }
 
-        inline void recalculateArrayArg()
+        void recalculateArrayArg()
         {
             SmallVector<Argument*, 16> new_array_args;
-            int i = 0;
+            int j = 0;
             for (auto &arg : F->args())
             {
-                if (array_args[i] == &arg)
+                for (size_t i = 0; i < array_args.size(); i++)
                 {
-                    new_array_args.push_back(newF->getArg(i));
-                    i++;
+                    // contains
+                    if (array_args[i] == &arg)
+                    {
+                        new_array_args.push_back(newF->getArg(j));
+                        break;
+                    }
                 }
+                j++;
             }
             array_args = new_array_args;
         }
@@ -69,8 +74,19 @@ void BoundsChecker::changeFunction(DenseMap<Value*, Value*> &map, IRBuilder<> B,
     C.recalculateArrayArg();
 
     // set names of new func's args - start
+    SmallVector<int, 16> array_arg_index;
     for (size_t ii = 0; ii < C.array_args.size(); ii++)
     {
+        int index = 0;
+        for (auto &aa : new_f->args())
+        {
+            if (&aa == C.array_args[ii])
+            {
+                array_arg_index.push_back(index);
+                break;
+            }
+            index++;
+        }
         new_args[ii]->setName(C.array_args[ii]->getName() + "_size");
         C.array_size_args.push_back(new_args[ii]);
         map[C.array_args[ii]] = new_args[ii];
@@ -86,7 +102,8 @@ void BoundsChecker::changeFunction(DenseMap<Value*, Value*> &map, IRBuilder<> B,
         for (auto &a : call->args())
             call_args.push_back(a);
 
-        call_args.push_back(getPtrSize(call->getParent()->getParent(), map, B, call));
+        for (size_t ii = 0; ii < array_arg_index.size(); ii++)
+            call_args.push_back(getPtrSize(call->getParent()->getParent(), map, B, call->getOperand(array_arg_index[ii]), true));
 
         B.SetInsertPoint(call);
         /*auto new_call = */B.CreateCall(new_f, makeArrayRef(call_args));
@@ -104,6 +121,7 @@ void BoundsChecker::changeFunction(DenseMap<Value*, Value*> &map, IRBuilder<> B,
     }
 
     C.F->eraseFromParent();
+    C.F = NULL;
 }
 
 Value* BoundsChecker::getPtrSize(Function *F, DenseMap<Value*, Value*> &map, IRBuilder<> B, Value *V, bool from_phi)
@@ -156,7 +174,7 @@ Value* BoundsChecker::getPtrSize(Function *F, DenseMap<Value*, Value*> &map, IRB
                 {
                     for (size_t ii = 0; ii < clone.array_args.size(); ii++)
                     {
-                        if (clone.array_args[ii]->getName() == arg->getName())
+                        if (clone.array_args[ii] == arg)
                             return clone.array_size_args[ii];
                     }
                     LOG_LINE("bug here");
@@ -170,7 +188,6 @@ Value* BoundsChecker::getPtrSize(Function *F, DenseMap<Value*, Value*> &map, IRB
                 getPtrSize(call->getParent()->getParent(), map, B, call);
             }
 
-            LOG_LINE("bundle created: ");
             CloneFuncBundle cl(F, {arg});
             replace_f.push_back(cl);
             return NULL;
@@ -184,8 +201,6 @@ Value* BoundsChecker::getPtrSize(Function *F, DenseMap<Value*, Value*> &map, IRB
 
             for (unsigned int ii = 0; ii < p->getNumIncomingValues(); ii++)
             {
-                LOG_LINE("incoming block: " << p->getIncomingBlock(ii)->getName());
-                LOG_LINE("incoming value: " << *p->getIncomingValue(ii));
                 if (p == p->getIncomingValue(ii))
                     new_p->addIncoming(new_p, p->getIncomingBlock(ii));
                 else
